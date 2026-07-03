@@ -36,6 +36,9 @@ public class BabyFireDragonSpawnEggItem extends Item {
 
 		entity.setPos(pos.getX() + 0.5D, pos.getY() + 0.1D, pos.getZ() + 0.5D);
 		entity.setPersistenceRequired();
+		if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+			entity.setOwner(serverPlayer);
+		}
 		level.addFreshEntity(entity);
 
 		if (player != null && !player.getAbilities().instabuild) {
