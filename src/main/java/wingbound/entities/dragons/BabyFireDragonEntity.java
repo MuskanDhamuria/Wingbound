@@ -3,6 +3,9 @@ package wingbound.entities.dragons;
 import java.util.UUID;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -12,6 +15,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FleeSunGoal;
@@ -21,6 +25,7 @@ import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.chicken.Chicken;
+import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -30,6 +35,8 @@ import net.minecraft.core.particles.ParticleTypes;
 import wingbound.Wingbound;
 
 public class BabyFireDragonEntity extends Chicken {
+	private static final EntityDataAccessor<Integer> FLIGHT_DIRECTION = SynchedEntityData.defineId(BabyFireDragonEntity.class, EntityDataSerializers.INT);
+
 	public enum GrowthStage {
 		BABY,
 		JUVENILE,
@@ -38,12 +45,19 @@ public class BabyFireDragonEntity extends Chicken {
 
 	private static final int FEED_BOND_POINTS = 5;
 	private static final int MAX_BOND_POINTS = 100;
+	private static final double FLY_VERTICAL_SPEED = 0.35D;
 
 	private UUID ownerUuid;
 	private int bondPoints;
 
 	public BabyFireDragonEntity(EntityType<? extends BabyFireDragonEntity> entityType, Level level) {
 		super(entityType, level);
+	}
+
+	@Override
+	protected void defineSynchedData(SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		builder.define(FLIGHT_DIRECTION, 0);
 	}
 
 	public void setOwner(ServerPlayer player) {
@@ -181,12 +195,83 @@ public class BabyFireDragonEntity extends Chicken {
 				forward *= 0.25F;
 			}
 
+			boolean canFly = this.getGrowthStage() == GrowthStage.ADULT;
+			if (canFly) {
+				int flightDirection = this.entityData.get(FLIGHT_DIRECTION);
+				double verticalMovement = flightDirection > 0
+					? FLY_VERTICAL_SPEED
+					: flightDirection < 0
+						? -FLY_VERTICAL_SPEED
+						: 0.0D;
+				this.setNoGravity(true);
+				this.setOnGround(false);
+				this.fallDistance = 0.0F;
+				if (verticalMovement != 0.0D) {
+					this.setPos(this.getX(), this.getY() + verticalMovement, this.getZ());
+				}
+				this.setSpeed((float)this.getAttributeValue(Attributes.MOVEMENT_SPEED));
+				super.travel(new Vec3(strafe, 0.0D, forward));
+				Vec3 deltaMovement = this.getDeltaMovement();
+				this.setDeltaMovement(deltaMovement.x, 0.0D, deltaMovement.z);
+				return;
+			}
+
 			this.setSpeed((float)this.getAttributeValue(Attributes.MOVEMENT_SPEED));
-			super.travel(new Vec3(strafe, travelVector.y, forward));
+			this.setNoGravity(false);
+			super.travel(new Vec3(strafe, 0.0D, forward));
 			return;
 		}
 
+		this.setNoGravity(false);
 		super.travel(travelVector);
+	}
+
+	@Override
+	public void aiStep() {
+		super.aiStep();
+
+		if (!(this.getControllingPassenger() instanceof Player) || this.getGrowthStage() != GrowthStage.ADULT) {
+			if (!this.level().isClientSide()) {
+				this.entityData.set(FLIGHT_DIRECTION, 0);
+			}
+			this.setNoGravity(false);
+			return;
+		}
+
+		this.setNoGravity(true);
+		this.fallDistance = 0.0F;
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+
+		if (!(this.getControllingPassenger() instanceof Player) || this.getGrowthStage() != GrowthStage.ADULT) {
+			return;
+		}
+
+		int flightDirection = this.entityData.get(FLIGHT_DIRECTION);
+		if (flightDirection == 0) {
+			return;
+		}
+
+		this.setNoGravity(true);
+		this.setOnGround(false);
+		this.fallDistance = 0.0F;
+		this.setPos(this.getX(), this.getY() + (flightDirection > 0 ? FLY_VERTICAL_SPEED : -FLY_VERTICAL_SPEED), this.getZ());
+	}
+
+	@Override
+	protected void customServerAiStep(ServerLevel serverLevel) {
+		super.customServerAiStep(serverLevel);
+
+		if (!(this.getControllingPassenger() instanceof ServerPlayer serverPlayer) || this.getGrowthStage() != GrowthStage.ADULT) {
+			this.entityData.set(FLIGHT_DIRECTION, 0);
+			return;
+		}
+
+		Input input = serverPlayer.getLastClientInput();
+		this.entityData.set(FLIGHT_DIRECTION, input.jump() ? 1 : input.shift() ? -1 : 0);
 	}
 
 	@Override
