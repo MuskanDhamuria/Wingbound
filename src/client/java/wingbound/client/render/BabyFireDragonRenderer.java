@@ -2,22 +2,16 @@ package wingbound.client.render;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.renderer.entity.ChickenRenderer;
-import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.entity.state.ChickenRenderState;
-import net.minecraft.resources.Identifier;
+import com.geckolib.renderer.GeoEntityRenderer;
 
-import wingbound.Wingbound;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+
 import wingbound.entities.dragons.BabyFireDragonEntity;
 
 @Environment(EnvType.CLIENT)
-public class BabyFireDragonRenderer extends ChickenRenderer {
+public class BabyFireDragonRenderer extends GeoEntityRenderer<BabyFireDragonEntity, EntityRenderState> {
     public BabyFireDragonRenderer(EntityRendererProvider.Context ctx) {
-        super(ctx);
-    }
-
-    @Override
-    public Identifier getTextureLocation(ChickenRenderState renderState) {
-        return Wingbound.id("textures/entity/baby_fire_dragon.png");
+        super(ctx, new FireDragonGeoModel());
     }
 }

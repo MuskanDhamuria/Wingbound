@@ -1,0 +1,9 @@
+{
+  "parent": "greendragons:custom/dragoneggs",
+  "textures": {
+    "all": "greendragons:block/universe",
+    "particle": "greendragons:block/universe",
+    "0": "greendragons:block/universe"
+  },
+  "render_type": "solid"
+}

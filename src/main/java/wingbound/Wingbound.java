@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import wingbound.registry.ModEntities;
 import wingbound.registry.ModItems;
+import wingbound.network.WingboundNetworking;
 
 public class Wingbound implements ModInitializer {
 	public static final String MOD_ID = "wingbound";
@@ -22,6 +23,7 @@ public class Wingbound implements ModInitializer {
 	public void onInitialize() {
 		ModEntities.register();
 		ModItems.register();
+		WingboundNetworking.register();
 		LOGGER.info("Wingbound initialized");
 	}
 

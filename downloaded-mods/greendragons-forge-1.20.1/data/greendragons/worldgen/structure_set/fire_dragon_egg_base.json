@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "greendragons:fire_dragon_egg_base",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 20,
+    "separation": 15,
+    "salt": 2086658705
+  }
+}

@@ -19,11 +19,11 @@ public final class ModEntities {
 	}
 
 	public static void register() {
-		BABY_FIRE_DRAGON = Registry.register(
+			BABY_FIRE_DRAGON = Registry.register(
 			BuiltInRegistries.ENTITY_TYPE,
 			Wingbound.id("baby_fire_dragon"),
 			EntityType.Builder.<BabyFireDragonEntity>of(BabyFireDragonEntity::new, MobCategory.CREATURE)
-				.sized(0.8F, 1.0F)
+				.sized(2.2F, 1.8F)
 				.build(ResourceKey.create(Registries.ENTITY_TYPE, Wingbound.id("baby_fire_dragon")))
 		);
 

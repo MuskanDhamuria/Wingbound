@@ -1,0 +1,9 @@
+{
+  "parent": "greendragons:custom/dragoneggse",
+  "textures": {
+    "all": "greendragons:block/fire",
+    "particle": "greendragons:block/fire",
+    "0": "greendragons:block/fire"
+  },
+  "render_type": "solid"
+}

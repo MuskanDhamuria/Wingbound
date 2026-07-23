@@ -1,7 +1,7 @@
 package wingbound.client;
 
 import net.fabricmc.api.ClientModInitializer;
-import net.minecraft.client.renderer.entity.EntityRenderers;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 
 import wingbound.client.render.BabyFireDragonRenderer;
 import wingbound.registry.ModEntities;
@@ -9,8 +9,7 @@ import wingbound.registry.ModEntities;
 public class WingboundClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		@SuppressWarnings({"unchecked", "rawtypes"})
-		net.minecraft.client.renderer.entity.EntityRendererProvider provider = BabyFireDragonRenderer::new;
-		EntityRenderers.register((net.minecraft.world.entity.EntityType) ModEntities.BABY_FIRE_DRAGON, provider);
+		EntityRendererRegistry.register(ModEntities.BABY_FIRE_DRAGON, BabyFireDragonRenderer::new);
+		DragonKeyMappings.register();
 	}
 }

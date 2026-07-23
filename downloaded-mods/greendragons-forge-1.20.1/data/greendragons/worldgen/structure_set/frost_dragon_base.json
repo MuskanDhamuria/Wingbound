@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "greendragons:frost_dragon_base",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 20,
+    "separation": 15,
+    "salt": 1819081038
+  }
+}

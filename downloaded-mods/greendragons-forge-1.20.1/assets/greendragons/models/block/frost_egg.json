@@ -1,0 +1,9 @@
+{
+  "parent": "greendragons:custom/dragoneggsa",
+  "textures": {
+    "all": "greendragons:block/frost",
+    "particle": "greendragons:block/frost",
+    "0": "greendragons:block/frost"
+  },
+  "render_type": "solid"
+}

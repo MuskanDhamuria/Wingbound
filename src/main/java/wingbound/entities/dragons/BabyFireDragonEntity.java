@@ -2,7 +2,13 @@ package wingbound.entities.dragons;
 
 import java.util.UUID;
 
-import net.minecraft.network.chat.Component;
+import com.geckolib.animatable.GeoEntity;
+import com.geckolib.animatable.instance.AnimatableInstanceCache;
+import com.geckolib.animatable.manager.AnimatableManager;
+import com.geckolib.animation.AnimationController;
+import com.geckolib.animation.RawAnimation;
+import com.geckolib.util.GeckoLibUtil;
+
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -25,30 +31,27 @@ import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.chicken.Chicken;
-import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.particles.ParticleTypes;
-import wingbound.Wingbound;
+import net.minecraft.world.entity.projectile.hurtingprojectile.SmallFireball;
 
-public class BabyFireDragonEntity extends Chicken {
+public class BabyFireDragonEntity extends Chicken implements GeoEntity {
 	private static final EntityDataAccessor<Integer> FLIGHT_DIRECTION = SynchedEntityData.defineId(BabyFireDragonEntity.class, EntityDataSerializers.INT);
 
-	public enum GrowthStage {
-		BABY,
-		JUVENILE,
-		ADULT
-	}
+	private static final RawAnimation IDLE_ANIMATION = RawAnimation.begin().thenLoop("idle");
+	private static final float FEED_HEAL_AMOUNT = 4.0F;
+	private static final double FLY_VERTICAL_SPEED = 0.2D;
+	private static final double RIDDEN_FLY_SPEED = 0.55D;
+	private static final double RIDER_HEIGHT_OFFSET = 4.25D;
+	private static final double RIDER_FORWARD_OFFSET = -0.35D;
 
-	private static final int FEED_BOND_POINTS = 5;
-	private static final int MAX_BOND_POINTS = 100;
-	private static final double FLY_VERTICAL_SPEED = 0.35D;
-
+	private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
 	private UUID ownerUuid;
-	private int bondPoints;
+	private int attackCooldown;
 
 	public BabyFireDragonEntity(EntityType<? extends BabyFireDragonEntity> entityType, Level level) {
 		super(entityType, level);
@@ -58,6 +61,16 @@ public class BabyFireDragonEntity extends Chicken {
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		super.defineSynchedData(builder);
 		builder.define(FLIGHT_DIRECTION, 0);
+	}
+
+	@Override
+	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+		controllers.add(new AnimationController<>("idle", 5, state -> state.setAndContinue(IDLE_ANIMATION)));
+	}
+
+	@Override
+	public AnimatableInstanceCache getAnimatableInstanceCache() {
+		return this.geoCache;
 	}
 
 	public void setOwner(ServerPlayer player) {
@@ -70,36 +83,6 @@ public class BabyFireDragonEntity extends Chicken {
 			return entity instanceof ServerPlayer ? (ServerPlayer)entity : null;
 		}
 		return null;
-	}
-
-	public int getBondPoints() {
-		return this.bondPoints;
-	}
-
-	public String getBondLevel() {
-		if (this.bondPoints >= MAX_BOND_POINTS) {
-			return "BFF!!";
-		}
-		if (this.bondPoints >= 75) {
-			return "Best Friend";
-		}
-		if (this.bondPoints >= 50) {
-			return "Friend";
-		}
-		if (this.bondPoints >= 25) {
-			return "Curious";
-		}
-		return "Stranger";
-	}
-
-	public GrowthStage getGrowthStage() {
-		if (this.bondPoints >= MAX_BOND_POINTS) {
-			return GrowthStage.ADULT;
-		}
-		if (this.bondPoints >= 50) {
-			return GrowthStage.JUVENILE;
-		}
-		return GrowthStage.BABY;
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -129,12 +112,6 @@ public class BabyFireDragonEntity extends Chicken {
 	public InteractionResult mobInteract(Player player, InteractionHand hand) {
 		ItemStack stack = player.getItemInHand(hand);
 		if (stack.isEmpty()) {
-			if (this.getGrowthStage() != GrowthStage.ADULT) {
-				if (player instanceof ServerPlayer serverPlayer) {
-					serverPlayer.sendSystemMessage(Component.literal("This dragon is not big enough to ride yet."));
-				}
-				return InteractionResult.SUCCESS;
-			}
 			if (!this.level().isClientSide()) {
 				player.startRiding(this);
 			}
@@ -146,21 +123,8 @@ public class BabyFireDragonEntity extends Chicken {
 		}
 
 		if (this.level() instanceof ServerLevel serverLevel) {
-			this.bondPoints = Math.min(this.bondPoints + FEED_BOND_POINTS, MAX_BOND_POINTS);
+			this.heal(FEED_HEAL_AMOUNT);
 			serverLevel.sendParticles(ParticleTypes.HEART, this.getX(), this.getY() + 0.8D, this.getZ(), 3, 0.25D, 0.25D, 0.25D, 0.0D);
-			Wingbound.LOGGER.debug(
-				"[BabyFireDragon] Fed with {} by {}, bond is now {}/100 ({}), growth is {}",
-				stack.getItem(),
-				player.getName().getString(),
-				this.bondPoints,
-				this.getBondLevel(),
-				this.getGrowthStage()
-			);
-			if (player instanceof ServerPlayer serverPlayer) {
-				serverPlayer.sendSystemMessage(Component.literal(
-					"Bond: " + this.bondPoints + "/100 - " + this.getBondLevel() + "\nGrowth: " + this.getGrowthStage()
-				));
-			}
 			if (!player.getAbilities().instabuild) {
 				stack.shrink(1);
 			}
@@ -195,30 +159,13 @@ public class BabyFireDragonEntity extends Chicken {
 				forward *= 0.25F;
 			}
 
-			boolean canFly = this.getGrowthStage() == GrowthStage.ADULT;
-			if (canFly) {
-				int flightDirection = this.entityData.get(FLIGHT_DIRECTION);
-				double verticalMovement = flightDirection > 0
-					? FLY_VERTICAL_SPEED
-					: flightDirection < 0
-						? -FLY_VERTICAL_SPEED
-						: 0.0D;
-				this.setNoGravity(true);
-				this.setOnGround(false);
-				this.fallDistance = 0.0F;
-				if (verticalMovement != 0.0D) {
-					this.setPos(this.getX(), this.getY() + verticalMovement, this.getZ());
-				}
-				this.setSpeed((float)this.getAttributeValue(Attributes.MOVEMENT_SPEED));
-				super.travel(new Vec3(strafe, 0.0D, forward));
-				Vec3 deltaMovement = this.getDeltaMovement();
-				this.setDeltaMovement(deltaMovement.x, 0.0D, deltaMovement.z);
-				return;
-			}
-
-			this.setSpeed((float)this.getAttributeValue(Attributes.MOVEMENT_SPEED));
-			this.setNoGravity(false);
+			this.setNoGravity(true);
+			this.setOnGround(false);
+			this.fallDistance = 0.0F;
+			this.setSpeed((float)RIDDEN_FLY_SPEED);
 			super.travel(new Vec3(strafe, 0.0D, forward));
+			Vec3 deltaMovement = this.getDeltaMovement();
+			this.setDeltaMovement(deltaMovement.x, this.entityData.get(FLIGHT_DIRECTION) * FLY_VERTICAL_SPEED, deltaMovement.z);
 			return;
 		}
 
@@ -230,7 +177,7 @@ public class BabyFireDragonEntity extends Chicken {
 	public void aiStep() {
 		super.aiStep();
 
-		if (!(this.getControllingPassenger() instanceof Player) || this.getGrowthStage() != GrowthStage.ADULT) {
+		if (!(this.getControllingPassenger() instanceof Player)) {
 			if (!this.level().isClientSide()) {
 				this.entityData.set(FLIGHT_DIRECTION, 0);
 			}
@@ -246,7 +193,11 @@ public class BabyFireDragonEntity extends Chicken {
 	public void tick() {
 		super.tick();
 
-		if (!(this.getControllingPassenger() instanceof Player) || this.getGrowthStage() != GrowthStage.ADULT) {
+		if (this.attackCooldown > 0) {
+			this.attackCooldown--;
+		}
+
+		if (!(this.getControllingPassenger() instanceof Player)) {
 			return;
 		}
 
@@ -258,25 +209,48 @@ public class BabyFireDragonEntity extends Chicken {
 		this.setNoGravity(true);
 		this.setOnGround(false);
 		this.fallDistance = 0.0F;
-		this.setPos(this.getX(), this.getY() + (flightDirection > 0 ? FLY_VERTICAL_SPEED : -FLY_VERTICAL_SPEED), this.getZ());
+		Vec3 deltaMovement = this.getDeltaMovement();
+		this.setDeltaMovement(deltaMovement.x, flightDirection > 0 ? FLY_VERTICAL_SPEED : -FLY_VERTICAL_SPEED, deltaMovement.z);
 	}
 
 	@Override
 	protected void customServerAiStep(ServerLevel serverLevel) {
 		super.customServerAiStep(serverLevel);
 
-		if (!(this.getControllingPassenger() instanceof ServerPlayer serverPlayer) || this.getGrowthStage() != GrowthStage.ADULT) {
+		if (!(this.getControllingPassenger() instanceof ServerPlayer)) {
+			this.entityData.set(FLIGHT_DIRECTION, 0);
+		}
+	}
+
+	public void applyDownloadedModControls(boolean rise, boolean descend, boolean attack) {
+		if (!this.isVehicle()) {
 			this.entityData.set(FLIGHT_DIRECTION, 0);
 			return;
 		}
 
-		Input input = serverPlayer.getLastClientInput();
-		this.entityData.set(FLIGHT_DIRECTION, input.jump() ? 1 : input.shift() ? -1 : 0);
+		this.entityData.set(FLIGHT_DIRECTION, rise ? 1 : descend ? -1 : 0);
+		if (attack) {
+			this.shootFireballBurst();
+		}
+	}
+
+	private void shootFireballBurst() {
+		if (this.level().isClientSide() || this.attackCooldown > 0) {
+			return;
+		}
+
+		this.attackCooldown = 10;
+		Vec3 lookAngle = this.getLookAngle();
+		for (int i = 0; i < 8; i++) {
+			SmallFireball fireball = new SmallFireball(this.level(), this, lookAngle);
+			fireball.setPos(this.getX(), this.getEyeY() - 0.1D, this.getZ());
+			this.level().addFreshEntity(fireball);
+		}
 	}
 
 	@Override
 	protected Vec3 getPassengerAttachmentPoint(Entity entity, EntityDimensions entityDimensions, float partialTick) {
-		return new Vec3(0.0D, this.getBbHeight() * 0.8D, 0.0D);
+		return new Vec3(0.0D, RIDER_HEIGHT_OFFSET, RIDER_FORWARD_OFFSET);
 	}
 
 	@Override
