@@ -23,7 +23,7 @@ public final class ModEntities {
 			BuiltInRegistries.ENTITY_TYPE,
 			Wingbound.id("baby_fire_dragon"),
 			EntityType.Builder.<BabyFireDragonEntity>of(BabyFireDragonEntity::new, MobCategory.CREATURE)
-				.sized(2.2F, 1.8F)
+				.sized(8.0F, 6.5F)
 				.build(ResourceKey.create(Registries.ENTITY_TYPE, Wingbound.id("baby_fire_dragon")))
 		);
 

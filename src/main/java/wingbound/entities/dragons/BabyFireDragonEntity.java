@@ -30,7 +30,6 @@ import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.chicken.Chicken;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -39,15 +38,17 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.entity.projectile.hurtingprojectile.SmallFireball;
 
-public class BabyFireDragonEntity extends Chicken implements GeoEntity {
+public class BabyFireDragonEntity extends Animal implements GeoEntity {
 	private static final EntityDataAccessor<Integer> FLIGHT_DIRECTION = SynchedEntityData.defineId(BabyFireDragonEntity.class, EntityDataSerializers.INT);
 
-	private static final RawAnimation IDLE_ANIMATION = RawAnimation.begin().thenLoop("idle");
+	private static final RawAnimation IDLE_ANIMATION = RawAnimation.begin().thenLoop("animation.ignivorus.idle");
+	private static final RawAnimation WALK_ANIMATION = RawAnimation.begin().thenLoop("animation.ignivorus.walk");
+	private static final RawAnimation FLAP_ANIMATION = RawAnimation.begin().thenLoop("animation.ignivorus.flap");
 	private static final float FEED_HEAL_AMOUNT = 4.0F;
 	private static final double FLY_VERTICAL_SPEED = 0.2D;
 	private static final double RIDDEN_FLY_SPEED = 0.55D;
-	private static final double RIDER_HEIGHT_OFFSET = 4.25D;
-	private static final double RIDER_FORWARD_OFFSET = -0.35D;
+	private static final double RIDER_HEIGHT_OFFSET = 6.8D;
+	private static final double RIDER_FORWARD_OFFSET = -1.25D;
 
 	private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
 	private UUID ownerUuid;
@@ -65,7 +66,21 @@ public class BabyFireDragonEntity extends Chicken implements GeoEntity {
 
 	@Override
 	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-		controllers.add(new AnimationController<>("idle", 5, state -> state.setAndContinue(IDLE_ANIMATION)));
+		controllers.add(new AnimationController<>("movement", 5, state -> {
+			if (!this.onGround()) {
+				if (this.getDeltaMovement().horizontalDistanceSqr() > 0.01D || this.entityData.get(FLIGHT_DIRECTION) != 0) {
+					return state.setAndContinue(FLAP_ANIMATION);
+				}
+
+				return state.setAndContinue(IDLE_ANIMATION);
+			}
+
+			if (state.isMoving()) {
+				return state.setAndContinue(WALK_ANIMATION);
+			}
+
+			return state.setAndContinue(IDLE_ANIMATION);
+		}));
 	}
 
 	@Override
@@ -264,7 +279,7 @@ public class BabyFireDragonEntity extends Chicken implements GeoEntity {
 	}
 
 	@Override
-	public Chicken getBreedOffspring(ServerLevel serverLevel, AgeableMob ageableMob) {
+	public AgeableMob getBreedOffspring(ServerLevel serverLevel, AgeableMob ageableMob) {
 		return null;
 	}
 }
