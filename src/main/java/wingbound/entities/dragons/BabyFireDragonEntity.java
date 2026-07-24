@@ -36,7 +36,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.world.entity.projectile.hurtingprojectile.SmallFireball;
 
 public class BabyFireDragonEntity extends Animal implements GeoEntity {
 	private static final EntityDataAccessor<Integer> FLIGHT_DIRECTION = SynchedEntityData.defineId(BabyFireDragonEntity.class, EntityDataSerializers.INT);
@@ -52,7 +51,6 @@ public class BabyFireDragonEntity extends Animal implements GeoEntity {
 
 	private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
 	private UUID ownerUuid;
-	private int attackCooldown;
 
 	public BabyFireDragonEntity(EntityType<? extends BabyFireDragonEntity> entityType, Level level) {
 		super(entityType, level);
@@ -208,10 +206,6 @@ public class BabyFireDragonEntity extends Animal implements GeoEntity {
 	public void tick() {
 		super.tick();
 
-		if (this.attackCooldown > 0) {
-			this.attackCooldown--;
-		}
-
 		if (!(this.getControllingPassenger() instanceof Player)) {
 			return;
 		}
@@ -244,23 +238,6 @@ public class BabyFireDragonEntity extends Animal implements GeoEntity {
 		}
 
 		this.entityData.set(FLIGHT_DIRECTION, rise ? 1 : descend ? -1 : 0);
-		if (attack) {
-			this.shootFireballBurst();
-		}
-	}
-
-	private void shootFireballBurst() {
-		if (this.level().isClientSide() || this.attackCooldown > 0) {
-			return;
-		}
-
-		this.attackCooldown = 10;
-		Vec3 lookAngle = this.getLookAngle();
-		for (int i = 0; i < 8; i++) {
-			SmallFireball fireball = new SmallFireball(this.level(), this, lookAngle);
-			fireball.setPos(this.getX(), this.getEyeY() - 0.1D, this.getZ());
-			this.level().addFreshEntity(fireball);
-		}
 	}
 
 	@Override
